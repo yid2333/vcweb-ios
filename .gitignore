@@ -1,1 +1,6 @@
-// swift-tools-version 占位不可用
+build/
+Payload/
+VCWeb.xcodeproj/
+VCWeb-unsigned.ipa
+build-log.txt
+.DS_Store
