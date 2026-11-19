@@ -2,7 +2,7 @@ import Foundation
 
 /// 存档备份。
 ///
-/// 网页版的存档在 WebKit 的 OPFS 里（页面自己挂在 Emscripten 的 `/vc-assets`），
+/// 网页版的存档在页面自己挂的 OPFS 里（Emscripten 的 `/vc-assets`），
 /// 原生这边读不到，只能让页面里的 JS 去读，再经由 WebView 传回。
 /// 备份出来的目录长这样，能直接从「文件」App 拷走：
 ///
@@ -16,10 +16,14 @@ enum SaveBackup {
         documents.appendingPathComponent("SaveBackups", isDirectory: true)
     }
 
-    /// 跑在页面里的脚本：把 OPFS 里的存档读成 base64。
+    /// 跑在页面里的脚本：自己找 OPFS 里放存档的地方，读成 base64。
     ///
-    /// 只取 `vc-assets/local/userfiles` 和 `vc-assets/local/revc.ini`，
-    /// 不碰游戏数据（那一堆是几百 MB，备份没意义）。
+    /// 不写死路径：页面挂 OPFS 的方式可能变（`/vc-assets` 在 FS 里，
+    /// 落到 OPFS 根下的名字未必一样），所以整棵目录树找一遍，
+    /// 只收 `userfiles` 底下的存档和 `revc.ini` / `gta_vc.set` 这类配置，
+    /// 游戏数据（几百 MB）一个字节都不碰。
+    ///
+    /// 找不到时把看过哪些目录一起返回，方便排查。
     static let exportScript = """
     if (!navigator.storage || !navigator.storage.getDirectory) {
       throw new Error("这个 WebView 不支持 OPFS，存不了档");
@@ -34,58 +38,68 @@ enum SaveBackup {
       return btoa(out);
     }
 
-    async function namesOf(dir) {
-      var names = [];
-      if (dir.keys) {
-        for await (var name of dir.keys()) { names.push(name); }
-        return names;
-      }
-      for await (var entry of dir.entries()) { names.push(entry[0]); }
-      return names;
-    }
-
-    async function walk(dir, prefix, out, depth) {
-      if (depth > 6) { return; }
-      var names = await namesOf(dir);
-      for (var name of names) {
-        try {
-          var file = await dir.getFileHandle(name);
-          var blob = await file.getFile();
-          var bytes = new Uint8Array(await blob.arrayBuffer());
-          out.push({ path: prefix + name, b64: toBase64(bytes) });
-        } catch (e) {
-          try {
-            var sub = await dir.getDirectoryHandle(name);
-            await walk(sub, prefix + name + "/", out, depth + 1);
-          } catch (e2) { /* 既不是文件也不是目录，跳过 */ }
-        }
-      }
+    function isInteresting(path) {
+      var lower = path.toLowerCase();
+      if (lower.indexOf("userfiles") >= 0) { return true; }
+      if (lower.indexOf("save") >= 0 && lower.indexOf("/") >= 0) { return true; }
+      var tail = lower.split("/").pop();
+      return tail === "revc.ini" || tail === "gta_vc.set" || tail === "gta_vc.set.b";
     }
 
     var files = [];
+    var seen = [];
+    var bytesBudget = 64 * 1024 * 1024;
+
+    async function walk(dir, prefix, depth) {
+      if (depth > 5) { return; }
+      if (seen.length < 300) { seen.push(prefix === "" ? "/" : prefix); }
+
+      var entries = [];
+      if (dir.entries) {
+        for await (var pair of dir.entries()) { entries.push([pair[0], pair[1]]); }
+      } else {
+        for await (var name of dir.keys()) { entries.push([name, null]); }
+      }
+
+      for (var i = 0; i < entries.length; i++) {
+        var name = entries[i][0];
+        var handle = entries[i][1];
+        var path = prefix === "" ? name : prefix + "/" + name;
+
+        if (handle && handle.kind === "file") {
+          if (!isInteresting(path)) { continue; }
+          try {
+            var blob = await handle.getFile();
+            if (blob.size > bytesBudget) { continue; }
+            var bytes = new Uint8Array(await blob.arrayBuffer());
+            bytesBudget -= blob.size;
+            files.push({ path: path, b64: toBase64(bytes) });
+          } catch (e) { /* 单个文件读失败不影响别的 */ }
+          continue;
+        }
+
+        var sub = handle;
+        if (!sub) {
+          try { sub = await dir.getDirectoryHandle(name); } catch (e) { sub = null; }
+        }
+        if (sub) { await walk(sub, path, depth + 1); }
+      }
+    }
+
     var root = await navigator.storage.getDirectory();
-    var assets;
-    try {
-      assets = await root.getDirectoryHandle("vc-assets");
-    } catch (e) {
-      return { ok: false, reason: "OPFS 里还没有 vc-assets，先进一次游戏再来备份" };
+    await walk(root, "", 0);
+
+    var diag = seen.slice(0, 40).join("\\n");
+
+    if (files.length === 0) {
+      return {
+        ok: false,
+        reason: "OPFS 里没找到存档文件",
+        diag: "看过的目录：\\n" + diag
+      };
     }
 
-    var local = null;
-    try { local = await assets.getDirectoryHandle("local"); } catch (e) { local = null; }
-    if (local) {
-      var userfiles = null;
-      try { userfiles = await local.getDirectoryHandle("userfiles"); } catch (e) { userfiles = null; }
-      if (userfiles) { await walk(userfiles, "local/userfiles/", files, 0); }
-      try {
-        var ini = await local.getFileHandle("revc.ini");
-        var iniBlob = await ini.getFile();
-        var iniBytes = new Uint8Array(await iniBlob.arrayBuffer());
-        files.push({ path: "local/revc.ini", b64: toBase64(iniBytes) });
-      } catch (e) { /* 没有 ini 也正常 */ }
-    }
-
-    return { ok: true, files: files };
+    return { ok: true, files: files, diag: "" };
     """
 
     struct Result {
@@ -113,7 +127,7 @@ enum SaveBackup {
             let safe = sanitize(rawPath)
             guard !safe.isEmpty else { continue }
 
-            // 用户名字是备份时的实际路径，只用它拼文件名，绝不让 / 跑出目录。
+            // 页面给的路径只用来拼文件名，绝不让 .. 跑出备份目录。
             let dest = dir.appendingPathComponent(safe)
             let parent = dest.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)

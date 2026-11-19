@@ -158,7 +158,7 @@ struct SettingsView: View {
                 } header: {
                     Text("游戏页面地址")
                 } footer: {
-                    Text("默认是 DOS.Zone 的 v16 网页版。地址里带 ?wasm= 之类的参数要完整保留，别自己拆开。")
+                    Text("默认是国内镜像，不用梯子。境外网络可以填 DOS.Zone 官方 v16 地址，地址里带 ?wasm= 的参数要完整保留。")
                 }
 
                 Section {

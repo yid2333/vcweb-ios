@@ -10,9 +10,12 @@ final class AppModel: ObservableObject {
     @Published var gameFileCount = 0
     @Published var lastBackupText: String?
 
-    /// 默认地址：DOS.Zone 官方托管的网页版 v16。
-    /// wasm 参数是外链（br.cdn.dos.zone），已经整体 URL 编码好，原样交给 WKWebView。
-    static let defaultGameURL = URL(string:
+    /// 默认地址：国内镜像（实测不挂梯子也能进）。
+    /// 官方源见 `officialGameURL`，在设置里可以切过去，但国内网络得自备梯子。
+    static let defaultGameURL = URL(string: "https://gtavc.armdev.cn/")!
+
+    /// DOS.Zone 官方托管的网页版 v16（境外网络可用）。
+    static let officialGameURL = URL(string:
         "https://dos.zone/vcsky/release/v16/index.html" +
         "?wasm=https%3A%2F%2Fbr.cdn.dos.zone%2Fvcsky%2Fv16.wasm.br" +
         "&lang=en"
@@ -140,7 +143,9 @@ final class AppModel: ObservableObject {
                     return
                 }
                 guard dict["ok"] as? Bool == true else {
-                    completion("备份失败：\(dict["reason"] as? String ?? "未知原因")")
+                    let reason = dict["reason"] as? String ?? "未知原因"
+                    let diag = dict["diag"] as? String ?? ""
+                    completion(diag.isEmpty ? "备份失败：\(reason)" : "备份失败：\(reason)\n\n\(diag)")
                     return
                 }
                 let files = dict["files"] as? [[String: Any]] ?? []
