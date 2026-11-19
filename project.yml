@@ -1,0 +1,42 @@
+name: VCWeb
+options:
+  bundleIdPrefix: com.clark
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    # 全程未签名：CI 上没证书，LiveContainer / 自签工具自己重签。
+    CODE_SIGN_IDENTITY: ""
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGNING_ALLOWED: "NO"
+
+targets:
+  VCWeb:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Web
+        type: folder
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.clark.vcweb
+        # 用仓库里手写的那份 Info.plist，别让 XcodeGen 重新生成。
+        INFOPLIST_FILE: Info.plist
+        GENERATE_INFOPLIST_FILE: "NO"
+
+schemes:
+  VCWeb:
+    build:
+      targets:
+        VCWeb: all
+    run:
+      config: Release
+    archive:
+      config: Release
