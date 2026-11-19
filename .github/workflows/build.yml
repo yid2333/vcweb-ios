@@ -1,0 +1,61 @@
+name: build-ipa
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 环境信息
+        run: |
+          echo "xcode: $(xcodebuild -version | tr '\n' ' ')"
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: 安装 xcodegen
+        run: brew install xcodegen
+
+      # 故意拆成两步：生成工程和编译分开，失败了能一眼看出是哪一步。
+      - name: 生成工程
+        run: xcodegen generate
+
+      - name: 编译并打包
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          bash scripts/build-ipa.sh 2>&1 | tee build-log.txt
+
+      # 不管成没成，都把 ipa 和日志挂到 release 上，
+      # 这样没 token 的一侧（比如开发者的手机）也能直接下载。
+      - name: 发布产物
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="ci-${{ github.run_number }}"
+          gh release create "$tag" \
+            --title "CI run $tag" \
+            --notes "自动化构建，提交 ${{ github.sha }}" || true
+          gh release upload "$tag" build-log.txt --clobber || true
+          if [ -f VCWeb-unsigned.ipa ]; then
+            gh release upload "$tag" VCWeb-unsigned.ipa --clobber
+          fi
+
+      - name: 上传 ipa（Actions 里也能下）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VCWeb-unsigned-ipa
+          path: |
+            VCWeb-unsigned.ipa
+            build-log.txt
+          if-no-files-found: warn
