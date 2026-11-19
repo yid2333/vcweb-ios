@@ -21,15 +21,13 @@ struct VCWebApp: App {
     }
 }
 
-/// 游戏页：全屏 WebView + 右上角两个小按钮（备份存档 / 退出）。
+/// 游戏页：全屏 WebView + 左上角一个退出按钮（避开游戏自己的右上角菜单）。
 private struct GameScreen: View {
     @ObservedObject var model: AppModel
     @StateObject private var holder = WebViewHolder()
-    @State private var note: String?
-    @State private var showNote = false
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
+        ZStack(alignment: .topLeading) {
             GameWebView(
                 remoteURL: model.gameURL,
                 localRoot: model.localWebRoot,
@@ -38,39 +36,17 @@ private struct GameScreen: View {
             )
             .ignoresSafeArea()
 
-            HStack(spacing: 10) {
-                Button {
-                    model.backupSaves(using: holder.webView) { text in
-                        note = text
-                        showNote = true
-                    }
-                } label: {
-                    Image(systemName: "square.and.arrow.down.on.square")
-                        .font(.system(size: 20, weight: .semibold))
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.white.opacity(0.75))
-                        .padding(10)
-                        .background(.black.opacity(0.35), in: Circle())
-                }
-                .accessibilityLabel("备份存档")
-
-                Button {
-                    model.quitGame()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 28))
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.white.opacity(0.7))
-                }
-                .accessibilityLabel("退出")
+            Button {
+                model.quitGame()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 26))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.white.opacity(0.45))
             }
-            .padding(14)
+            .accessibilityLabel("退出")
+            .padding(12)
         }
         .statusBarHidden(true)
-        .alert("存档备份", isPresented: $showNote) {
-            Button("好", role: .cancel) { showNote = false }
-        } message: {
-            Text(note ?? "")
-        }
     }
 }

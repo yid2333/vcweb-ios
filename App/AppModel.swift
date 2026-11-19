@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import WebKit
 
 /// 全局状态：游戏地址、本地网页包、导入的游戏文件目录。
 final class AppModel: ObservableObject {
@@ -8,7 +7,6 @@ final class AppModel: ObservableObject {
     @Published var gameURL: URL = AppModel.defaultGameURL
     @Published var localWebRoot: URL?
     @Published var gameFileCount = 0
-    @Published var lastBackupText: String?
 
     /// 默认地址：国内镜像（实测不挂梯子也能进）。
     /// 官方源见 `officialGameURL`，在设置里可以切过去，但国内网络得自备梯子。
@@ -36,7 +34,6 @@ final class AppModel: ObservableObject {
         loadSavedURL()
         scanLocalWebBundle()
         refreshGameFileCount()
-        lastBackupText = defaults.string(forKey: "lastBackup")
     }
 
     private func createFolders() {
@@ -70,6 +67,12 @@ final class AppModel: ObservableObject {
     func resetGameURL() {
         gameURL = Self.defaultGameURL
         defaults.removeObject(forKey: "gameURL")
+    }
+
+    /// 切到 DOS.Zone 官方源（国内需要梯子）。
+    func useOfficialGameURL() {
+        gameURL = Self.officialGameURL
+        defaults.set(Self.officialGameURL.absoluteString, forKey: "gameURL")
     }
 
     /// 是否走本地离线包。
@@ -118,49 +121,6 @@ final class AppModel: ObservableObject {
 
     func startGame() {
         showGame = true
-    }
-
-    /// 从正在跑游戏的 WebView 里把存档导到 Documents/SaveBackups。
-    /// 只能玩着的时候做：存档在页面自己的 OPFS 里，只能让页面自己去读。
-    func backupSaves(using webView: WKWebView?, completion: @escaping (String) -> Void) {
-        guard let webView else {
-            completion("还没进游戏，没有可备份的存档")
-            return
-        }
-        webView.callAsyncJavaScript(
-            SaveBackup.exportScript,
-            arguments: [:],
-            in: nil,
-            in: .page
-        ) { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .failure(let error):
-                completion("备份失败：\(error.localizedDescription)")
-            case .success(let value):
-                guard let dict = value as? [String: Any] else {
-                    completion("备份失败：页面没返回数据")
-                    return
-                }
-                guard dict["ok"] as? Bool == true else {
-                    let reason = dict["reason"] as? String ?? "未知原因"
-                    let diag = dict["diag"] as? String ?? ""
-                    completion(diag.isEmpty ? "备份失败：\(reason)" : "备份失败：\(reason)\n\n\(diag)")
-                    return
-                }
-                let files = dict["files"] as? [[String: Any]] ?? []
-                do {
-                    let saved = try SaveBackup.write(payload: files, documents: self.documents)
-                    let kb = max(1, saved.byteCount / 1024)
-                    let text = "已备份 \(saved.fileCount) 个文件（\(kb) KB）"
-                    self.lastBackupText = text
-                    self.defaults.set(text, forKey: "lastBackup")
-                    completion("\(text)\n目录：SaveBackups/\(saved.url.lastPathComponent)")
-                } catch {
-                    completion("写文件失败：\(error.localizedDescription)")
-                }
-            }
-        }
     }
 
     func quitGame() {

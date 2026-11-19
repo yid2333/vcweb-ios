@@ -59,14 +59,6 @@ struct LandingView: View {
                 }
                 .padding(.horizontal, 28)
 
-                if let last = model.lastBackupText {
-                    Text("上次备份：\(last)")
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.45))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 28)
-                }
-
                 Text("需要自备《GTA：罪恶都市》正版游戏文件")
                     .font(.caption2)
                     .foregroundStyle(.white.opacity(0.35))
@@ -164,6 +156,10 @@ struct SettingsView: View {
                 Section {
                     Button("恢复默认地址") {
                         model.resetGameURL()
+                        text = model.gameURL.absoluteString
+                    }
+                    Button("切到 DOS.Zone 官方源") {
+                        model.useOfficialGameURL()
                         text = model.gameURL.absoluteString
                     }
                 } footer: {
