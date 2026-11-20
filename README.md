@@ -1,7 +1,7 @@
 # 罪恶都市 iOS 套壳（VCWeb）
 
 把网页版 reVC（GTA Vice City 的 WebAssembly 移植）套成 iOS App 的外壳工程。
-App 只负责启动界面、全屏 WebView、导入游戏文件和本地资料管理，**不附带任何游戏素材**。
+App 只负责启动界面、全屏 WebView 和地址管理，**不附带任何游戏素材**。
 
 > 状态：工程还没真正编译过。GitHub Actions 因为账号问题没跑起来，所以下面所有构建结论都是静态检查的结果，不是「已验证编过」。第一次 CI 跑完之前别把 ipa 当成品。
 
@@ -44,13 +44,10 @@ App 直接加载上面那个 dos.zone 地址。需要联网，游戏数据从 `b
 revc-ios/
 ├── App/
 │   ├── VCWebApp.swift          入口：启动器 ↔ 游戏
-│   ├── AppModel.swift          地址、导入的文件、本地网页包
-│   ├── LandingView.swift       启动器界面、导入、设置、关于
+│   ├── AppModel.swift          地址、本地网页包
+│   ├── LandingView.swift       启动器界面、设置、关于
 │   ├── GameWebView.swift       WKWebView 全屏 + 导航/弹窗处理
-│   ├── VCWebSchemeHandler.swift  vcweb:// 本地文件服务
-│   ├── GameBridge.swift        给网页用的 JS 桥（读 Documents/GameFiles）
-│   ├── SaveBackup.swift        存档备份（从 OPFS 导到 Documents）
-│   └── Web/                    本地网页版放这里（可选，目前空）
+│   └── VCWebSchemeHandler.swift  vcweb:// 本地文件服务
 ├── Info.plist
 ├── project.yml                 XcodeGen 工程描述
 ├── scripts/build-ipa.sh        编出未签名 ipa
@@ -81,36 +78,11 @@ bash scripts/build-ipa.sh
 
 1. 打开 App，点「开始游戏」→ 全屏加载网页版。
 2. 「连接地址」可以换地址，只收 `http(s)://`；填错会提示，不会存。
-3. 「导入游戏文件」选文件夹，会拷进 `Documents/GameFiles`；也可以在「文件」App 里直接往 App 文件夹拖（`UIFileSharingEnabled` 已开）。
-4. 网页里想读这些文件：
-   - 直接当网址用：`<img src="vcweb://game/tex/x.png">`、`fetch("vcweb://game/data/a.dat")`
-   - 或用 JS 桥：
-
-```js
-await VCWebNative.listFiles();      // ["models/gta3.dir", ...]
-await VCWebNative.exists("x.dff");  // true / false
-await VCWebNative.readBase64("x.dff");
-await VCWebNative.readText("revc.ini");
-```
 
 ## 存档和数据
 
-- 网页存档在 WebKit 的 OPFS 里，挂在页面的 Emscripten `/vc-assets` 下，原生读不到，只能让页面自己读。
-- 游戏里右上角有个「备份存档」按钮：点一下会在页面里跑 JS，只取
-  `vc-assets/local/userfiles/**` 和 `vc-assets/local/revc.ini`，落到：
-
-```
-Documents/SaveBackups/2026-11-20-013000/
-├── manifest.json
-└── local/
-    ├── revc.ini
-    └── userfiles/...
-```
-
-  `UIFileSharingEnabled` 已开，可以直接在「文件」App 里把整个 `SaveBackups` 拷走。
-- 只能玩着的时候备份（存档在页面自己的存储里，页面没跑就没法读）。
-- 导回去（恢复）还没做，见待办。
-- 导入的游戏文件在 `Documents/GameFiles`，同样能通过「文件」App 备份。
+- 网页存档在 WebKit 的 OPFS 里，挂在页面的 Emscripten `/vc-assets` 下，原生读不到。
+- 存档备份按钮已经在上一版移除，想把存档带走只能在页面里自己导。
 
 ## 上游
 

@@ -18,8 +18,6 @@ struct GameWebView: UIViewRepresentable {
     let remoteURL: URL
     /// App 包里 Web/ 目录；有的话优先离线。
     let localRoot: URL?
-    /// Documents/GameFiles，通过 vcweb://game/ 给网页读。
-    let gameRoot: URL
     let holder: WebViewHolder
 
     func makeCoordinator() -> Coordinator {
@@ -34,20 +32,8 @@ struct GameWebView: UIViewRepresentable {
 
         // 本地文件走自定义 scheme
         config.setURLSchemeHandler(
-            VCWebSchemeHandler(localRoot: localRoot, gameRoot: gameRoot),
+            VCWebSchemeHandler(localRoot: localRoot),
             forURLScheme: VCWebScheme.scheme
-        )
-
-        // JS 桥：网页可以读 Documents/GameFiles
-        let bridge = GameBridge(gameRoot: gameRoot)
-        context.coordinator.bridge = bridge
-        config.userContentController.add(bridge, name: GameBridge.handlerName)
-        config.userContentController.addUserScript(
-            WKUserScript(
-                source: GameBridge.javascriptAPI,
-                injectionTime: .atDocumentStart,
-                forMainFrameOnly: true
-            )
         )
 
         let webView = WKWebView(frame: .zero, configuration: config)
@@ -77,17 +63,12 @@ struct GameWebView: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {}
 
     static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
-        coordinator.bridge = nil
         webView.stopLoading()
-        webView.configuration.userContentController.removeScriptMessageHandler(
-            forName: GameBridge.handlerName
-        )
         webView.navigationDelegate = nil
         webView.uiDelegate = nil
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
-        var bridge: GameBridge?
 
         // MARK: 导航
 

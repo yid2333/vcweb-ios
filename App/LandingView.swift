@@ -1,14 +1,11 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
-/// 启动器界面：进游戏、导入游戏文件、改地址、关于。
+/// 启动器界面：进游戏、改地址、关于。
 struct LandingView: View {
     @EnvironmentObject private var model: AppModel
 
-    @State private var showImporter = false
     @State private var showSettings = false
     @State private var showAbout = false
-    @State private var message: String?
 
     var body: some View {
         ZStack {
@@ -46,52 +43,17 @@ struct LandingView: View {
                 VStack(spacing: 12) {
                     primaryButton("开始游戏") { model.startGame() }
 
-                    secondaryButton(
-                        model.gameFileCount > 0
-                            ? "游戏文件已导入（\(model.gameFileCount) 项）"
-                            : "导入游戏文件"
-                    ) { showImporter = true }
-
                     HStack(spacing: 12) {
                         secondaryButton("连接地址") { showSettings = true }
                         secondaryButton("关于") { showAbout = true }
                     }
                 }
                 .padding(.horizontal, 28)
+                .padding(.bottom, 24)
 
-                Text("需要自备《GTA：罪恶都市》正版游戏文件")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.35))
-                    .padding(.bottom, 24)
             }
         }
         .statusBarHidden(true)
-        .fileImporter(
-            isPresented: $showImporter,
-            allowedContentTypes: [.folder],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard let folder = urls.first else { return }
-                do {
-                    try model.importFolder(from: folder)
-                    message = "导入完成，共 \(model.gameFileCount) 项"
-                } catch {
-                    message = "导入失败：\(error.localizedDescription)"
-                }
-            case .failure(let error):
-                message = "取消或出错：\(error.localizedDescription)"
-            }
-        }
-        .alert("提示", isPresented: Binding(
-            get: { message != nil },
-            set: { if !$0 { message = nil } }
-        )) {
-            Button("好", role: .cancel) { message = nil }
-        } message: {
-            Text(message ?? "")
-        }
         .sheet(isPresented: $showSettings) {
             SettingsView()
                 .environmentObject(model)

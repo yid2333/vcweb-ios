@@ -1,7 +1,7 @@
 import Foundation
 import WebKit
 
-/// 自定义 scheme：本地网页包和导入的游戏文件都走它，不用 file://。
+/// 自定义 scheme：本地网页包走它，不用 file://。
 ///
 /// 为什么不用 file://：WKWebView 加载 file:// 页面时，wasm / ES module /
 /// fetch 都会被 CORS 当成跨源挡掉，页内还会被当作不安全上下文。
@@ -9,11 +9,9 @@ import WebKit
 ///
 /// 路由：
 ///   vcweb://local/<路径>  → App 包里的 Web/ 目录
-///   vcweb://game/<路径>   → Documents/GameFiles/ 目录
 enum VCWebScheme {
     static let scheme = "vcweb"
     static let localHost = "local"
-    static let gameHost = "game"
 
     static func localURL(_ path: String = "index.html") -> URL {
         URL(string: "\(scheme)://\(localHost)/\(path)")!
@@ -22,10 +20,8 @@ enum VCWebScheme {
 
 final class VCWebSchemeHandler: NSObject, WKURLSchemeHandler {
     private let localRoot: URL?
-    private let gameRoot: URL?
-    init(localRoot: URL?, gameRoot: URL?) {
+    init(localRoot: URL?) {
         self.localRoot = localRoot?.standardizedFileURL
-        self.gameRoot = gameRoot?.standardizedFileURL
         super.init()
     }
 
@@ -41,14 +37,7 @@ final class VCWebSchemeHandler: NSObject, WKURLSchemeHandler {
             return
         }
 
-        let root: URL?
-        switch host {
-        case VCWebScheme.localHost: root = localRoot
-        case VCWebScheme.gameHost: root = gameRoot
-        default: root = nil
-        }
-
-        guard let root else {
+        guard host == VCWebScheme.localHost, let root = localRoot else {
             reply(task, status: 404, body: "没有可用的本地目录：\(host)")
             return
         }

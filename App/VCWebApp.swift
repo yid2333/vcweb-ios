@@ -31,7 +31,6 @@ private struct GameScreen: View {
             GameWebView(
                 remoteURL: model.gameURL,
                 localRoot: model.localWebRoot,
-                gameRoot: model.gameFilesRoot,
                 holder: holder
             )
             .ignoresSafeArea()

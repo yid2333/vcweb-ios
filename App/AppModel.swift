@@ -1,12 +1,11 @@
 import Foundation
 import SwiftUI
 
-/// 全局状态：游戏地址、本地网页包、导入的游戏文件目录。
+/// 全局状态：游戏地址、本地网页包。
 final class AppModel: ObservableObject {
     @Published var showGame = false
     @Published var gameURL: URL = AppModel.defaultGameURL
     @Published var localWebRoot: URL?
-    @Published var gameFileCount = 0
 
     /// 默认地址：国内镜像（实测不挂梯子也能进）。
     /// 官方源见 `officialGameURL`，在设置里可以切过去，但国内网络得自备梯子。
@@ -25,22 +24,9 @@ final class AppModel: ObservableObject {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
 
-    var gameFilesRoot: URL {
-        documents.appendingPathComponent("GameFiles", isDirectory: true)
-    }
-
     init() {
-        createFolders()
         loadSavedURL()
         scanLocalWebBundle()
-        refreshGameFileCount()
-    }
-
-    private func createFolders() {
-        try? FileManager.default.createDirectory(
-            at: gameFilesRoot,
-            withIntermediateDirectories: true
-        )
     }
 
     private func loadSavedURL() {
@@ -91,32 +77,6 @@ final class AppModel: ObservableObject {
         if let index = Bundle.main.url(forResource: "index", withExtension: "html") {
             localWebRoot = index.deletingLastPathComponent()
         }
-    }
-
-    /// 把选中的文件夹里的东西拷进 Documents/GameFiles。
-    func importFolder(from picked: URL) throws {
-        let scoped = picked.startAccessingSecurityScopedResource()
-        defer { if scoped { picked.stopAccessingSecurityScopedResource() } }
-
-        let items = try FileManager.default.contentsOfDirectory(
-            at: picked,
-            includingPropertiesForKeys: [.isDirectoryKey]
-        )
-        for item in items {
-            let dest = gameFilesRoot.appendingPathComponent(item.lastPathComponent)
-            if FileManager.default.fileExists(atPath: dest.path) {
-                try? FileManager.default.removeItem(at: dest)
-            }
-            try FileManager.default.copyItem(at: item, to: dest)
-        }
-        refreshGameFileCount()
-    }
-
-    func refreshGameFileCount() {
-        let count = (try? FileManager.default.contentsOfDirectory(
-            atPath: gameFilesRoot.path
-        ).count) ?? 0
-        gameFileCount = count
     }
 
     func startGame() {
