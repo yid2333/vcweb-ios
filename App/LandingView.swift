@@ -164,23 +164,44 @@ struct AboutView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("这是什么")
-                        .font(.headline)
-                    Text("一个跑网页版 reVC 的 iOS 外壳。游戏本体来自社区的开源移植，本 App 只负责显示和操作，不附带任何游戏素材。")
-                        .font(.callout)
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("VCWeb")
+                            .font(.system(size: 34, weight: .black, design: .rounded))
+                        Text("罪恶都市 · 网页版套壳")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
 
-                    Text("你需要什么")
-                        .font(.headline)
-                        .padding(.top, 6)
-                    Text("自己的一份《GTA：罪恶都市》正版游戏文件，以及网页版的运行环境。")
-                        .font(.callout)
+                    section(
+                        "这是什么",
+                        "一个把网页版 reVC 装进 iOS 的外壳。App 只提供启动页、全屏 WebView 和地址设置，游戏画面、声音、存档全部来自网页那边，App 自己不带任何游戏素材。"
+                    )
 
-                    Text("免责")
-                        .font(.headline)
-                        .padding(.top, 6)
-                    Text("非官方项目，与 Rockstar Games、Take-Two 无关。请勿用于分发或出售游戏素材。")
-                        .font(.callout)
+                    section(
+                        "怎么开始",
+                        "点「开始游戏」就是全屏加载页面。加载不出来，去「连接地址」切到官方源再试；地址只收 http(s)://，填错不会保存。"
+                    )
+
+                    section(
+                        "存档在哪",
+                        "存档在网页自己的 OPFS 存储里，在 WebKit 容器内，App 读不到也不会去动。想备份就在游戏里用页面自己的导出。"
+                    )
+
+                    section(
+                        "你需要什么",
+                        "一份正版《GTA：罪恶都市》授权，以及能访问对应网页版的网络环境。App 里没有任何破解、绕过或分发游戏素材的功能。"
+                    )
+
+                    section(
+                        "免责",
+                        "非官方项目，与 Rockstar Games、Take-Two 没有任何关系。请勿用于分发或出售游戏素材，也不要当成正版替代品。"
+                    )
+
+                    Text(version)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 4)
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,5 +213,23 @@ struct AboutView: View {
                 }
             }
         }
+    }
+
+    private func section(_ title: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.headline)
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var version: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info?["CFBundleVersion"] as? String ?? "?"
+        return "版本 \(short) (\(build)) · 未签名构建"
     }
 }
