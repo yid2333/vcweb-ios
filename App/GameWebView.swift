@@ -29,6 +29,8 @@ struct GameWebView: UIViewRepresentable {
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
+        // 按移动端视口渲染，避免页面按桌面宽度排版后留下大片黑边
+        config.defaultWebpagePreferences.preferredContentMode = .mobile
 
         // 本地文件走自定义 scheme
         config.setURLSchemeHandler(
@@ -43,7 +45,12 @@ struct GameWebView: UIViewRepresentable {
         webView.backgroundColor = .black
         webView.scrollView.backgroundColor = .black
         webView.scrollView.bounces = false
-        webView.scrollView.isScrollEnabled = false
+        // 页面里的设置、存档这些面板需要滑动，之前被禁掉了
+        webView.scrollView.isScrollEnabled = true
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.scrollView.showsVerticalScrollIndicator = false
+        webView.scrollView.showsHorizontalScrollIndicator = false
+        webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         webView.allowsBackForwardNavigationGestures = false
         webView.allowsLinkPreview = false
         if #available(iOS 16.4, *) {
